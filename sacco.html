@@ -1,0 +1,1271 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sacco Financial System - Offline/Online</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Use Inter font -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+        }
+        
+        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background-color: #059669; border-radius: 3px; }
+        .custom-scroll::-webkit-scrollbar-track { background-color: #e5e7eb; }
+
+        .header-bg { background-color: #064e3b; }
+        .text-sacco-primary { color: #059669; }
+        .bg-sacco-secondary { background-color: #10b981; }
+
+        .btn-primary {
+            @apply px-4 py-2 bg-emerald-600 text-white font-semibold rounded-lg shadow-md hover:bg-emerald-700 transition duration-150 ease-in-out flex items-center justify-center;
+        }
+
+        .chart-bar-container {
+            height: 150px;
+            display: flex;
+            align-items: flex-end;
+            gap: 4px;
+            border-left: 1px solid #e5e7eb;
+            border-bottom: 1px solid #e5e7eb;
+            padding-left: 2px;
+        }
+        .chart-bar {
+            width: 10%;
+            background-color: #34d399;
+            transition: height 0.5s ease-out;
+            border-top-left-radius: 2px;
+            border-top-right-radius: 2px;
+            position: relative;
+        }
+        .chart-label {
+            position: absolute;
+            bottom: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.65rem;
+            color: #4b5563;
+        }
+        
+        .toggle-label {
+            @apply block overflow-hidden h-6 rounded-full bg-gray-500 cursor-pointer;
+        }
+        .toggle-checkbox {
+            @apply absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer transition duration-200 ease-in;
+            right: 16px;
+        }
+        .toggle-checkbox:checked {
+            right: 0;
+            @apply border-yellow-500;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            @apply bg-yellow-500;
+        }
+        
+        .loading-dots:after {
+            content: '.';
+            animation: dots 1.5s steps(5, end) infinite;
+        }
+        @keyframes dots {
+            0%, 20% { color: rgba(0,0,0,0); text-shadow: .25em 0 0 rgba(0,0,0,0), .5em 0 0 rgba(0,0,0,0); }
+            40% { color: currentColor; text-shadow: .25em 0 0 rgba(0,0,0,0), .5em 0 0 rgba(0,0,0,0); }
+            60% { text-shadow: .25em 0 0 currentColor, .5em 0 0 rgba(0,0,0,0); }
+            80%, 100% { text-shadow: .25em 0 0 currentColor, .5em 0 0 currentColor; }
+        }
+        
+        .card {
+            @apply bg-white rounded-xl shadow-lg border-l-4;
+        }
+        
+        .status-active { @apply bg-green-100 text-green-800 border-green-400; }
+        .status-cleared { @apply bg-blue-100 text-blue-800 border-blue-400; }
+        .status-pending { @apply bg-yellow-100 text-yellow-800 border-yellow-400; }
+        
+        .responsive-table {
+            @apply w-full divide-y divide-gray-200 text-sm;
+        }
+        
+        .focusable:focus {
+            @apply outline-none ring-2 ring-blue-500 ring-opacity-50;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            body {
+                background: white !important;
+                font-size: 12pt;
+            }
+            .card {
+                box-shadow: none !important;
+                border: 1px solid #ddd !important;
+            }
+        }
+        
+        .notification {
+            @apply p-4 rounded-lg border-l-4 mb-4;
+        }
+        .notification-info {
+            @apply bg-blue-50 border-blue-400 text-blue-700;
+        }
+        .notification-warning {
+            @apply bg-yellow-50 border-yellow-400 text-yellow-700;
+        }
+        .notification-success {
+            @apply bg-green-50 border-green-400 text-green-700;
+        }
+
+        /* Toast notifications */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            z-index: 1000;
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+        }
+        .toast.show {
+            transform: translateX(0);
+        }
+        .toast.success { background-color: #10b981; }
+        .toast.error { background-color: #ef4444; }
+        .toast.warning { background-color: #f59e0b; }
+        .toast.info { background-color: #3b82f6; }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+    </style>
+    <!-- Include SheetJS for Excel export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Include jsPDF for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body class="p-4 sm:p-8">
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <!-- Modal Container -->
+    <div id="modal-container"></div>
+
+    <div class="max-w-7xl mx-auto min-h-[90vh] flex flex-col bg-white rounded-2xl shadow-2xl">
+        <!-- Header -->
+        <header class="header-bg p-4 rounded-t-2xl flex justify-between items-center no-print">
+            <div>
+                <h1 class="text-3xl font-extrabold text-white">Sacco Financial System</h1>
+                <p class="text-sm text-gray-300">
+                    Data Source: <span id="online-status" class="font-bold text-red-300">OFFLINE (Local)</span>
+                    | Last Updated: <span id="last-updated">Just now</span>
+                </p>
+            </div>
+            
+            <!-- User Switcher and Online/Offline Toggle -->
+            <div class="flex items-center space-x-4">
+                <!-- Online/Offline Toggle -->
+                <div class="flex items-center space-x-2">
+                    <label for="online-toggle" class="text-sm text-white font-medium">AI/Online</label>
+                    <div class="relative inline-block w-10 h-6 align-middle select-none transition duration-200 ease-in">
+                        <input type="checkbox" name="online-toggle" id="online-toggle" class="toggle-checkbox focusable">
+                        <label for="online-toggle" class="toggle-label"></label>
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-2">
+                    <label for="user-switcher" class="text-sm text-white font-medium">View As:</label>
+                    <select id="user-switcher" class="p-2 rounded-lg text-gray-800 bg-white border border-gray-300 focusable">
+                        <!-- Options will be populated dynamically -->
+                    </select>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Container -->
+        <div id="app-container" class="flex-grow p-4">
+            <!-- Content will be rendered here -->
+        </div>
+
+        <!-- Footer -->
+        <footer class="p-3 text-center text-xs text-gray-500 border-t rounded-b-2xl no-print">
+            Offline App | Data stored in your browser's LocalStorage | Auto-refresh: 10 minutes
+        </footer>
+    </div>
+
+    <script>
+        // Configuration
+        const LOCAL_STORAGE_KEY = 'sacco_offline_data';
+        const ADMIN_ID = 'admin-sacco-123';
+        
+        // Financial Constants
+        const UAP_ANNUAL_RATE = 0.11;
+        const UAP_DAILY_RATE = UAP_ANNUAL_RATE / 365;
+        const BEGINNER_UNIT_UAP = 50000;
+        const BEGINNER_UNIT_MUNO = 5000;
+        const STANDARD_UNIT_UAP = 100000;
+        const STANDARD_UNIT_MUNO = 10000;
+        const MM_SERVICE_CHARGE = 5000;
+        const LOAN_INTEREST_RATE = 0.05;
+        const MATERNITY_SUPPORT_RATE = 0.5;
+
+        // Global State
+        let allMembers = [];
+        let currentUserId = ADMIN_ID;
+        let currentMemberData = null;
+        let activeTab = 'dashboard';
+        let saccoExpenses = [];
+        let maternitySupportEvents = [];
+        let isOnlineMode = false;
+        let lastUpdateTime = new Date();
+        let refreshInterval;
+
+        // Toast Notification System
+        function showToast(message, type = 'info', duration = 5000) {
+            const toastContainer = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            toastContainer.appendChild(toast);
+            
+            // Animate in
+            setTimeout(() => toast.classList.add('show'), 100);
+            
+            // Auto remove
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, duration);
+        }
+
+        // Modal System
+        function showModal(title, content, buttons = []) {
+            const modalContainer = document.getElementById('modal-container');
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <h3 class="text-xl font-bold mb-4">${title}</h3>
+                    <div class="mb-6">${content}</div>
+                    <div class="flex justify-end space-x-2">
+                        ${buttons.map(btn => 
+                            `<button onclick="${btn.onclick}" class="px-4 py-2 rounded-lg ${btn.class}">${btn.text}</button>`
+                        ).join('')}
+                        <button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">Close</button>
+                    </div>
+                </div>
+            `;
+            modalContainer.appendChild(modal);
+            
+            setTimeout(() => modal.classList.add('show'), 100);
+        }
+
+        function closeModal() {
+            const modalContainer = document.getElementById('modal-container');
+            const modal = modalContainer.querySelector('.modal');
+            if (modal) {
+                modal.classList.remove('show');
+                setTimeout(() => modal.remove(), 300);
+            }
+        }
+
+        // Sample Data (28 members)
+        const SAMPLE_DATA = {
+            "members": [
+                {
+                    "id": "admin-sacco-123",
+                    "name": "Sacco Administrator",
+                    "numAccounts": 0,
+                    "accountType": "none",
+                    "config": {
+                        "monthlyUapContribution": 0,
+                        "monthlyMunoContribution": 0
+                    },
+                    "savings100k": [],
+                    "muno10k": [],
+                    "loans": [],
+                    "monthlyContributions": [],
+                    "uapInterestEarned": 0,
+                    "profitShare": 0
+                },
+                {
+                    "id": "member-001",
+                    "name": "Sarah Nalwoga",
+                    "numAccounts": 3,
+                    "accountType": "standard",
+                    "config": {
+                        "monthlyUapContribution": 300000,
+                        "monthlyMunoContribution": 30000
+                    },
+                    "savings100k": [
+                        {
+                            "month": "Jan 2024",
+                            "contribution": 300000,
+                            "interest": 0,
+                            "balance": 300000
+                        },
+                        {
+                            "month": "Feb 2024",
+                            "contribution": 300000,
+                            "interest": 2700,
+                            "balance": 602700
+                        }
+                    ],
+                    "muno10k": [
+                        {
+                            "date": "15/01/2024",
+                            "type": "Saving",
+                            "amount": 30000,
+                            "balance": 30000
+                        },
+                        {
+                            "date": "15/02/2024",
+                            "type": "Saving",
+                            "amount": 30000,
+                            "balance": 60000
+                        }
+                    ],
+                    "loans": [
+                        {
+                            "loanId": "L-001",
+                            "date": "15/02/2024",
+                            "amount": 500000,
+                            "interestRate": 0.05,
+                            "originalBalance": 525000,
+                            "balance": 450000,
+                            "status": "Active"
+                        }
+                    ],
+                    "monthlyContributions": [
+                        {
+                            "date": "2024-01-15",
+                            "uapAmount": 300000,
+                            "munoAmount": 30000,
+                            "totalAmount": 330000,
+                            "comment": "Monthly contribution for Jan 2024"
+                        },
+                        {
+                            "date": "2024-02-15",
+                            "uapAmount": 300000,
+                            "munoAmount": 30000,
+                            "totalAmount": 330000,
+                            "comment": "Monthly contribution for Feb 2024"
+                        }
+                    ],
+                    "uapInterestEarned": 8124,
+                    "profitShare": 12500
+                },
+                {
+                    "id": "member-002",
+                    "name": "David Ssemakula",
+                    "numAccounts": 4,
+                    "accountType": "standard",
+                    "config": {
+                        "monthlyUapContribution": 400000,
+                        "monthlyMunoContribution": 40000
+                    },
+                    "savings100k": [
+                        {
+                            "month": "Jan 2024",
+                            "contribution": 400000,
+                            "interest": 0,
+                            "balance": 400000
+                        },
+                        {
+                            "month": "Feb 2024",
+                            "contribution": 400000,
+                            "interest": 3600,
+                            "balance": 803600
+                        }
+                    ],
+                    "muno10k": [
+                        {
+                            "date": "15/01/2024",
+                            "type": "Saving",
+                            "amount": 40000,
+                            "balance": 40000
+                        },
+                        {
+                            "date": "15/02/2024",
+                            "type": "Saving",
+                            "amount": 40000,
+                            "balance": 80000
+                        }
+                    ],
+                    "loans": [],
+                    "monthlyContributions": [
+                        {
+                            "date": "2024-01-15",
+                            "uapAmount": 400000,
+                            "munoAmount": 40000,
+                            "totalAmount": 440000,
+                            "comment": "Monthly contribution for Jan 2024"
+                        },
+                        {
+                            "date": "2024-02-15",
+                            "uapAmount": 400000,
+                            "munoAmount": 40000,
+                            "totalAmount": 440000,
+                            "comment": "Monthly contribution for Feb 2024"
+                        }
+                    ],
+                    "uapInterestEarned": 3600,
+                    "profitShare": 8000
+                },
+                {
+                    "id": "member-003",
+                    "name": "Grace Nakato",
+                    "numAccounts": 1,
+                    "accountType": "beginner",
+                    "config": {
+                        "monthlyUapContribution": 50000,
+                        "monthlyMunoContribution": 5000
+                    },
+                    "savings100k": [
+                        {
+                            "month": "Jan 2024",
+                            "contribution": 50000,
+                            "interest": 0,
+                            "balance": 50000
+                        },
+                        {
+                            "month": "Feb 2024",
+                            "contribution": 50000,
+                            "interest": 450,
+                            "balance": 100450
+                        }
+                    ],
+                    "muno10k": [
+                        {
+                            "date": "15/01/2024",
+                            "type": "Saving",
+                            "amount": 5000,
+                            "balance": 5000
+                        },
+                        {
+                            "date": "15/02/2024",
+                            "type": "Saving",
+                            "amount": 5000,
+                            "balance": 10000
+                        }
+                    ],
+                    "loans": [
+                        {
+                            "loanId": "L-002",
+                            "date": "10/01/2024",
+                            "amount": 80000,
+                            "interestRate": 0.05,
+                            "originalBalance": 84000,
+                            "balance": 0,
+                            "status": "Cleared"
+                        }
+                    ],
+                    "monthlyContributions": [
+                        {
+                            "date": "2024-01-15",
+                            "uapAmount": 50000,
+                            "munoAmount": 5000,
+                            "totalAmount": 55000,
+                            "comment": "Monthly contribution for Jan 2024"
+                        },
+                        {
+                            "date": "2024-02-15",
+                            "uapAmount": 50000,
+                            "munoAmount": 5000,
+                            "totalAmount": 55000,
+                            "comment": "Monthly contribution for Feb 2024"
+                        }
+                    ],
+                    "uapInterestEarned": 450,
+                    "profitShare": 2000
+                }
+                // Additional 25 members would be added here in a real implementation
+            ],
+            "expenses": [
+                {
+                    "id": "exp-001",
+                    "date": "2024-01-20",
+                    "description": "Office rent for January",
+                    "amount": 200000,
+                    "category": "Administrative"
+                },
+                {
+                    "id": "exp-002",
+                    "date": "2024-02-15",
+                    "description": "Utilities and internet",
+                    "amount": 150000,
+                    "category": "Operational"
+                }
+            ],
+            "maternityEvents": [
+                {
+                    "id": "mat-001",
+                    "date": "2024-02-10",
+                    "memberId": "member-007",
+                    "memberName": "Alice Nansubuga",
+                    "description": "Maternity support for spouse delivery",
+                    "amount": 0,
+                    "applied": false
+                }
+            ]
+        };
+
+        // Utility Functions
+        window.formatCurrency = (amount) => {
+            if (typeof amount !== 'number') amount = parseFloat(amount);
+            if (isNaN(amount)) return 'UGX 0';
+            return new Intl.NumberFormat('en-UG', { 
+                style: 'currency', 
+                currency: 'UGX', 
+                minimumFractionDigits: 0 
+            }).format(Math.round(amount));
+        };
+
+        function calculateUAPInterest(principal, days) {
+            return principal * Math.pow(1 + UAP_DAILY_RATE, days) - principal;
+        }
+
+        // Data Management
+        function loadData() {
+            try {
+                const storedData = localStorage.getItem(LOCAL_STORAGE_KEY);
+                if (storedData) {
+                    const parsedData = JSON.parse(storedData);
+                    allMembers = parsedData.members || SAMPLE_DATA.members;
+                    saccoExpenses = parsedData.expenses || SAMPLE_DATA.expenses;
+                    maternitySupportEvents = parsedData.maternityEvents || SAMPLE_DATA.maternityEvents;
+                    showToast('Data loaded successfully', 'success');
+                } else {
+                    allMembers = JSON.parse(JSON.stringify(SAMPLE_DATA.members));
+                    saccoExpenses = JSON.parse(JSON.stringify(SAMPLE_DATA.expenses));
+                    maternitySupportEvents = JSON.parse(JSON.stringify(SAMPLE_DATA.maternityEvents));
+                    saveData();
+                    showToast('Sample data loaded successfully', 'success');
+                }
+            } catch (e) {
+                console.error("Error loading data:", e);
+                allMembers = JSON.parse(JSON.stringify(SAMPLE_DATA.members));
+                saccoExpenses = JSON.parse(JSON.stringify(SAMPLE_DATA.expenses));
+                maternitySupportEvents = JSON.parse(JSON.stringify(SAMPLE_DATA.maternityEvents));
+                showToast('Error loading data, using sample data', 'error');
+            }
+        }
+
+        function saveData() {
+            try {
+                const dataToSave = {
+                    members: allMembers,
+                    expenses: saccoExpenses,
+                    maternityEvents: maternitySupportEvents
+                };
+                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(dataToSave));
+                lastUpdateTime = new Date();
+                updateLastUpdatedDisplay();
+            } catch (e) {
+                console.error("Error saving data:", e);
+                showToast('Error saving data', 'error');
+            }
+        }
+
+        function updateLastUpdatedDisplay() {
+            const element = document.getElementById('last-updated');
+            if (element) {
+                element.textContent = lastUpdateTime.toLocaleTimeString();
+            }
+        }
+
+        // Import/Export Functions
+        window.importFromJSON = (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    
+                    if (importedData.members && Array.isArray(importedData.members)) {
+                        allMembers = importedData.members;
+                        saccoExpenses = importedData.expenses || [];
+                        maternitySupportEvents = importedData.maternityEvents || [];
+                        
+                        saveData();
+                        updateUserSwitcher();
+                        renderApp();
+                        
+                        showToast(`Successfully imported ${importedData.members.length - 1} members`, 'success');
+                    } else {
+                        showToast('Invalid file format', 'error');
+                    }
+                    
+                    event.target.value = '';
+                } catch (error) {
+                    console.error('Error importing data:', error);
+                    showToast('Error importing data', 'error');
+                }
+            };
+            reader.readAsText(file);
+        };
+
+        window.exportToJSON = () => {
+            const dataToExport = {
+                members: allMembers,
+                expenses: saccoExpenses,
+                maternityEvents: maternitySupportEvents
+            };
+            
+            const dataStr = JSON.stringify(dataToExport, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(dataBlob);
+            link.download = `sacco-data-${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            
+            showToast('Data exported successfully', 'success');
+        };
+
+        window.exportToExcel = () => {
+            try {
+                const regularMembers = allMembers.filter(m => m.id !== ADMIN_ID);
+                const data = [
+                    ['Sacco Members Report'],
+                    ['Generated on:', new Date().toLocaleDateString('en-UG')],
+                    ['Total Members:', regularMembers.length],
+                    [''],
+                    ['Member Details'],
+                    ['Member ID', 'Name', 'Account Type', 'Units', 'UAP Balance', 'Muno Balance', 'Total Balance', 'Active Loans', 'Loan Balance', 'Interest Earned']
+                ];
+                
+                regularMembers.forEach(m => {
+                    const uapBalance = m.savings100k.length > 0 ? m.savings100k[m.savings100k.length - 1].balance : 0;
+                    const munoBalance = m.muno10k.length > 0 ? m.muno10k[m.muno10k.length - 1].balance : 0;
+                    const totalBalance = uapBalance + munoBalance;
+                    const activeLoans = m.loans.filter(l => l.balance > 0).length;
+                    const loanBalance = m.loans.reduce((sum, l) => sum + l.balance, 0);
+                    
+                    data.push([
+                        m.id,
+                        m.name,
+                        m.accountType,
+                        m.numAccounts,
+                        uapBalance,
+                        munoBalance,
+                        totalBalance,
+                        activeLoans,
+                        loanBalance,
+                        m.uapInterestEarned
+                    ]);
+                });
+                
+                const ws = XLSX.utils.aoa_to_sheet(data);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'Members Report');
+                XLSX.writeFile(wb, `sacco-members-${new Date().toISOString().split('T')[0]}.xlsx`);
+                
+                showToast('Excel report exported successfully', 'success');
+            } catch (error) {
+                console.error('Error exporting to Excel:', error);
+                showToast('Error exporting to Excel', 'error');
+            }
+        };
+
+        window.exportToPDF = () => {
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                
+                const regularMembers = allMembers.filter(m => m.id !== ADMIN_ID);
+                
+                doc.setFontSize(16);
+                doc.text('Sacco Members Report', 20, 20);
+                doc.setFontSize(12);
+                doc.text(`Generated on: ${new Date().toLocaleDateString('en-UG')}`, 20, 30);
+                doc.text(`Total Members: ${regularMembers.length}`, 20, 40);
+                
+                const tableData = regularMembers.map(m => {
+                    const uapBalance = m.savings100k.length > 0 ? m.savings100k[m.savings100k.length - 1].balance : 0;
+                    const munoBalance = m.muno10k.length > 0 ? m.muno10k[m.muno10k.length - 1].balance : 0;
+                    const totalBalance = uapBalance + munoBalance;
+                    const activeLoans = m.loans.filter(l => l.balance > 0).length;
+                    
+                    return [
+                        m.id,
+                        m.name,
+                        m.accountType,
+                        m.numAccounts.toString(),
+                        formatCurrency(uapBalance),
+                        formatCurrency(munoBalance),
+                        formatCurrency(totalBalance),
+                        activeLoans.toString()
+                    ];
+                });
+                
+                doc.autoTable({
+                    startY: 50,
+                    head: [['ID', 'Name', 'Type', 'Units', 'UAP Balance', 'Muno Balance', 'Total Balance', 'Active Loans']],
+                    body: tableData,
+                });
+                
+                doc.save(`sacco-report-${new Date().toISOString().split('T')[0]}.pdf`);
+                showToast('PDF report exported successfully', 'success');
+            } catch (error) {
+                console.error('Error exporting to PDF:', error);
+                showToast('Error exporting to PDF', 'error');
+            }
+        };
+
+        // CRUD Operations
+        window.addMember = (memberData) => {
+            const newId = `member-${String(allMembers.filter(m => m.id !== ADMIN_ID).length + 1).padStart(3, '0')}`;
+            const newMember = {
+                id: newId,
+                ...memberData,
+                savings100k: [],
+                muno10k: [],
+                loans: [],
+                monthlyContributions: [],
+                uapInterestEarned: 0,
+                profitShare: 0
+            };
+            
+            allMembers.push(newMember);
+            saveData();
+            updateUserSwitcher();
+            showToast(`Member ${memberData.name} added successfully`, 'success');
+            return newMember;
+        };
+
+        window.updateMember = (memberId, updates) => {
+            const memberIndex = allMembers.findIndex(m => m.id === memberId);
+            if (memberIndex !== -1) {
+                allMembers[memberIndex] = { ...allMembers[memberIndex], ...updates };
+                saveData();
+                showToast(`Member ${allMembers[memberIndex].name} updated successfully`, 'success');
+                return allMembers[memberIndex];
+            }
+            showToast('Member not found', 'error');
+            return null;
+        };
+
+        window.deleteMember = (memberId) => {
+            const memberIndex = allMembers.findIndex(m => m.id === memberId);
+            if (memberIndex !== -1 && memberId !== ADMIN_ID) {
+                const memberName = allMembers[memberIndex].name;
+                allMembers.splice(memberIndex, 1);
+                saveData();
+                updateUserSwitcher();
+                if (currentUserId === memberId) {
+                    currentUserId = ADMIN_ID;
+                }
+                showToast(`Member ${memberName} deleted successfully`, 'success');
+                renderApp();
+                return true;
+            }
+            showToast('Cannot delete member', 'error');
+            return false;
+        };
+
+        // UI Rendering Functions
+        function updateUserSwitcher() {
+            const select = document.getElementById('user-switcher');
+            if (!select) return;
+
+            select.innerHTML = allMembers.map(m => 
+                `<option value="${m.id}" ${m.id === currentUserId ? 'selected' : ''}>${m.name} (${m.id})</option>`
+            ).join('');
+        }
+
+        function renderApp() {
+            const appContainer = document.getElementById('app-container');
+            if (!appContainer) return;
+
+            // Update online status
+            const statusEl = document.getElementById('online-status');
+            if (statusEl) {
+                statusEl.textContent = isOnlineMode ? 'ONLINE (AI Active)' : 'OFFLINE (Local)';
+                statusEl.className = isOnlineMode ? 'font-bold text-yellow-300' : 'font-bold text-red-300';
+            }
+
+            // Render appropriate view
+            if (currentUserId === ADMIN_ID) {
+                renderAdminDashboard();
+            } else {
+                currentMemberData = allMembers.find(m => m.id === currentUserId);
+                if (currentMemberData) {
+                    renderMemberPortal();
+                }
+            }
+        }
+
+        function renderAdminDashboard() {
+            const appContainer = document.getElementById('app-container');
+            const regularMembers = allMembers.filter(m => m.id !== ADMIN_ID);
+            
+            appContainer.innerHTML = `
+                <div class="w-full">
+                    <!-- Admin Header -->
+                    <div class="header-bg p-4 mb-6 rounded-xl shadow-lg flex justify-between items-center">
+                        <h2 class="text-2xl font-bold text-white">Admin Dashboard</h2>
+                        <span class="text-sm text-gray-300">Total Members: ${regularMembers.length}</span>
+                    </div>
+
+                    <!-- Export/Import Buttons -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                        <button onclick="exportToJSON()" class="btn-primary bg-blue-600 hover:bg-blue-700">
+                            Export JSON
+                        </button>
+                        <button onclick="exportToExcel()" class="btn-primary bg-green-600 hover:bg-green-700">
+                            Export Excel
+                        </button>
+                        <button onclick="exportToPDF()" class="btn-primary bg-red-600 hover:bg-red-700">
+                            Export PDF
+                        </button>
+                        <div class="relative">
+                            <input type="file" id="json-import" accept=".json" class="hidden" onchange="importFromJSON(event)">
+                            <label for="json-import" class="btn-primary bg-purple-600 hover:bg-purple-700 cursor-pointer block text-center">
+                                Import JSON
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Tabs -->
+                    <div class="mb-6 flex space-x-4 border-b pb-2 overflow-x-auto">
+                        <button onclick="switchAdminTab('dashboard')" class="px-4 py-2 font-medium text-lg rounded-t-lg transition duration-150 whitespace-nowrap ${activeTab === 'dashboard' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-indigo-600'} focusable">
+                            Dashboard
+                        </button>
+                        <button onclick="switchAdminTab('members')" class="px-4 py-2 font-medium text-lg rounded-t-lg transition duration-150 whitespace-nowrap ${activeTab === 'members' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-indigo-600'} focusable">
+                            Members
+                        </button>
+                        <button onclick="switchAdminTab('contributions')" class="px-4 py-2 font-medium text-lg rounded-t-lg transition duration-150 whitespace-nowrap ${activeTab === 'contributions' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-indigo-600'} focusable">
+                            Contributions
+                        </button>
+                        <button onclick="switchAdminTab('expenses')" class="px-4 py-2 font-medium text-lg rounded-t-lg transition duration-150 whitespace-nowrap ${activeTab === 'expenses' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-indigo-600'} focusable">
+                            Expenses
+                        </button>
+                        <button onclick="switchAdminTab('addMember')" class="px-4 py-2 font-medium text-lg rounded-t-lg transition duration-150 whitespace-nowrap ${activeTab === 'addMember' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-indigo-600'} focusable">
+                            Add Member
+                        </button>
+                    </div>
+
+                    <div id="admin-content" class="fade-in">
+                        ${renderAdminContent()}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderAdminContent() {
+            switch (activeTab) {
+                case 'dashboard':
+                    return renderAdminDashboardContent();
+                case 'members':
+                    return renderMemberManagement();
+                case 'contributions':
+                    return renderMonthlyContributionsPanel();
+                case 'expenses':
+                    return renderSaccoExpensesPanel();
+                case 'addMember':
+                    return renderAddMemberForm();
+                default:
+                    return renderAdminDashboardContent();
+            }
+        }
+
+        function renderAdminDashboardContent() {
+            const regularMembers = allMembers.filter(m => m.id !== ADMIN_ID);
+            const totalUAP = regularMembers.reduce((sum, m) => sum + (m.savings100k[m.savings100k.length - 1]?.balance || 0), 0);
+            const totalMuno = regularMembers.reduce((sum, m) => sum + (m.muno10k[m.muno10k.length - 1]?.balance || 0), 0);
+            const totalMonthlyUAP = regularMembers.reduce((sum, m) => sum + m.config.monthlyUapContribution, 0);
+            const totalMonthlyMuno = regularMembers.reduce((sum, m) => sum + m.config.monthlyMunoContribution, 0);
+            const totalLoans = regularMembers.reduce((sum, m) => sum + m.loans.filter(l => l.balance > 0).length, 0);
+            const totalLoanBalance = regularMembers.reduce((sum, m) => sum + m.loans.reduce((loanSum, l) => loanSum + l.balance, 0), 0);
+
+            return `
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="card border-blue-500 text-center p-6">
+                        <p class="text-sm text-gray-500">Total UAP Savings</p>
+                        <p class="text-2xl font-bold text-blue-600">${formatCurrency(totalUAP)}</p>
+                    </div>
+                    <div class="card border-yellow-500 text-center p-6">
+                        <p class="text-sm text-gray-500">Total Muno Savings</p>
+                        <p class="text-2xl font-bold text-yellow-600">${formatCurrency(totalMuno)}</p>
+                    </div>
+                    <div class="card border-purple-500 text-center p-6">
+                        <p class="text-sm text-gray-500">Monthly UAP</p>
+                        <p class="text-2xl font-bold text-purple-600">${formatCurrency(totalMonthlyUAP)}</p>
+                    </div>
+                    <div class="card border-green-500 text-center p-6">
+                        <p class="text-sm text-gray-500">Monthly Muno</p>
+                        <p class="text-2xl font-bold text-green-600">${formatCurrency(totalMonthlyMuno)}</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    <div class="card border-red-500 text-center p-6">
+                        <p class="text-sm text-gray-500">Active Loans</p>
+                        <p class="text-2xl font-bold text-red-600">${totalLoans}</p>
+                    </div>
+                    <div class="card border-orange-500 text-center p-6">
+                        <p class="text-sm text-gray-500">Loan Balance</p>
+                        <p class="text-2xl font-bold text-orange-600">${formatCurrency(totalLoanBalance)}</p>
+                    </div>
+                </div>
+
+                <div class="card border-indigo-500 p-6">
+                    <h4 class="text-xl font-semibold text-indigo-700 mb-4">UAP Interest Projection (11% p.a.)</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
+                        <div class="bg-indigo-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-600">Daily Rate</p>
+                            <p class="text-lg font-bold text-indigo-600">${(UAP_DAILY_RATE * 100).toFixed(3)}%</p>
+                        </div>
+                        <div class="bg-indigo-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-600">Monthly Growth</p>
+                            <p class="text-lg font-bold text-indigo-600">${formatCurrency(calculateUAPInterest(totalUAP, 30))}</p>
+                        </div>
+                        <div class="bg-indigo-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-600">Quarterly Growth</p>
+                            <p class="text-lg font-bold text-indigo-600">${formatCurrency(calculateUAPInterest(totalUAP, 90))}</p>
+                        </div>
+                        <div class="bg-indigo-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-600">Annual Growth</p>
+                            <p class="text-lg font-bold text-indigo-600">${formatCurrency(calculateUAPInterest(totalUAP, 365))}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderMemberManagement() {
+            const regularMembers = allMembers.filter(m => m.id !== ADMIN_ID);
+            
+            return `
+                <div class="space-y-6">
+                    <!-- Search and Filter -->
+                    <div class="card border-blue-500 p-6">
+                        <h4 class="text-xl font-semibold text-blue-700 mb-4">Advanced Search & Filters</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Search Name/ID</label>
+                                <input type="text" id="search-member" placeholder="Enter name or ID" class="w-full p-2 border rounded-lg focus:ring-blue-500 focusable">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Account Type</label>
+                                <select id="filter-type" class="w-full p-2 border rounded-lg focus:ring-blue-500 focusable">
+                                    <option value="">All Types</option>
+                                    <option value="beginner">Beginner</option>
+                                    <option value="standard">Standard</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Units</label>
+                                <select id="filter-units" class="w-full p-2 border rounded-lg focus:ring-blue-500 focusable">
+                                    <option value="">All Units</option>
+                                    <option value="1">1 Unit</option>
+                                    <option value="2">2 Units</option>
+                                    <option value="3">3 Units</option>
+                                    <option value="4">4 Units</option>
+                                    <option value="5">5 Units</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Loan Status</label>
+                                <select id="filter-loans" class="w-full p-2 border rounded-lg focus:ring-blue-500 focusable">
+                                    <option value="">All Members</option>
+                                    <option value="with-loans">With Loans</option>
+                                    <option value="without-loans">Without Loans</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="flex space-x-2 mt-4">
+                            <button onclick="applyMemberFilters()" class="btn-primary bg-blue-600 hover:bg-blue-700">
+                                Apply Filters
+                            </button>
+                            <button onclick="clearMemberFilters()" class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">
+                                Clear Filters
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Members Table -->
+                    <div class="card border-green-500">
+                        <div class="p-4 border-b flex justify-between items-center">
+                            <h4 class="text-xl font-semibold text-green-700">Member List (${regularMembers.length} members)</h4>
+                            <button onclick="showAddMemberModal()" class="btn-primary bg-green-600 hover:bg-green-700">
+                                Add New Member
+                            </button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="responsive-table">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-2 text-left font-medium text-gray-500 uppercase">Member</th>
+                                        <th class="px-4 py-2 text-center font-medium text-gray-500 uppercase">Type</th>
+                                        <th class="px-4 py-2 text-center font-medium text-gray-500 uppercase">Units</th>
+                                        <th class="px-4 py-2 text-right font-medium text-gray-500 uppercase">UAP Balance</th>
+                                        <th class="px-4 py-2 text-right font-medium text-gray-500 uppercase">Muno Balance</th>
+                                        <th class="px-4 py-2 text-right font-medium text-gray-500 uppercase">Loans</th>
+                                        <th class="px-4 py-2 text-center font-medium text-gray-500 uppercase">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200" id="member-table-body">
+                                    ${renderMemberTableRows(regularMembers)}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderMemberTableRows(members) {
+            return members.map(m => {
+                const uapBalance = m.savings100k.length > 0 ? m.savings100k[m.savings100k.length - 1].balance : 0;
+                const munoBalance = m.muno10k.length > 0 ? m.muno10k[m.muno10k.length - 1].balance : 0;
+                const activeLoans = m.loans.filter(l => l.balance > 0).length;
+                
+                return `
+                    <tr>
+                        <td class="px-4 py-2">
+                            <div>
+                                <p class="font-medium">${m.name}</p>
+                                <p class="text-sm text-gray-500">${m.id}</p>
+                            </div>
+                        </td>
+                        <td class="px-4 py-2 text-center capitalize">${m.accountType}</td>
+                        <td class="px-4 py-2 text-center">${m.numAccounts}</td>
+                        <td class="px-4 py-2 text-right text-green-600">${formatCurrency(uapBalance)}</td>
+                        <td class="px-4 py-2 text-right text-yellow-600">${formatCurrency(munoBalance)}</td>
+                        <td class="px-4 py-2 text-right ${activeLoans > 0 ? 'text-red-600 font-semibold' : 'text-gray-500'}">
+                            ${activeLoans > 0 ? `${activeLoans} loan(s)` : 'None'}
+                        </td>
+                        <td class="px-4 py-2 text-center">
+                            <div class="flex justify-center space-x-2">
+                                <button onclick="viewMemberDetails('${m.id}')" class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm">
+                                    View
+                                </button>
+                                <button onclick="editMember('${m.id}')" class="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 text-sm">
+                                    Edit
+                                </button>
+                                <button onclick="deleteMemberConfirm('${m.id}')" class="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm">
+                                    Delete
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Filter Functions
+        window.applyMemberFilters = () => {
+            const searchTerm = document.getElementById('search-member').value.toLowerCase();
+            const typeFilter = document.getElementById('filter-type').value;
+            const unitsFilter = document.getElementById('filter-units').value;
+            const loansFilter = document.getElementById('filter-loans').value;
+            
+            let filteredMembers = allMembers.filter(m => m.id !== ADMIN_ID);
+            
+            if (searchTerm) {
+                filteredMembers = filteredMembers.filter(m => 
+                    m.name.toLowerCase().includes(searchTerm) || 
+                    m.id.toLowerCase().includes(searchTerm)
+                );
+            }
+            
+            if (typeFilter) {
+                filteredMembers = filteredMembers.filter(m => m.accountType === typeFilter);
+            }
+            
+            if (unitsFilter) {
+                filteredMembers = filteredMembers.filter(m => m.numAccounts === parseInt(unitsFilter));
+            }
+            
+            if (loansFilter === 'with-loans') {
+                filteredMembers = filteredMembers.filter(m => m.loans.some(l => l.balance > 0));
+            } else if (loansFilter === 'without-loans') {
+                filteredMembers = filteredMembers.filter(m => !m.loans.some(l => l.balance > 0));
+            }
+            
+            document.getElementById('member-table-body').innerHTML = renderMemberTableRows(filteredMembers);
+        };
+
+        window.clearMemberFilters = () => {
+            document.getElementById('search-member').value = '';
+            document.getElementById('filter-type').value = '';
+            document.getElementById('filter-units').value = '';
+            document.getElementById('filter-loans').value = '';
+            document.getElementById('member-table-body').innerHTML = renderMemberTableRows(allMembers.filter(m => m.id !== ADMIN_ID));
+        };
+
+        // Member CRUD Modals
+        window.showAddMemberModal = () => {
+            const content = `
+                <form id="add-member-form">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                            <input type="text" name="name" required class="w-full p-2 border rounded-lg focus:ring-blue-500 focusable">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Account Type</label>
+                            <select name="accountType" required class="w-full p-2 border rounded-lg focus:ring-blue-500 focusable">
+                                <option value="beginner">Beginner Unit (UGX 50,000 UAP + UGX 5,000 Muno)</option>
+                                <option value="standard">Standard Unit (UGX 100,000 UAP + UGX 10,000 Muno)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Number of Units (1-5)</label>
+                            <input type="number" name="numAccounts" min="1" max="5" required class="w-full p-2 border rounded-lg focus:ring-blue-500 focusable">
+                        </div>
+                    </div>
+                </form>
+            `;
+            
+            const buttons = [
+                {
+                    text: 'Add Member',
+                    class: 'bg-green-600 text-white hover:bg-green-700',
+                    onclick: `submitAddMemberForm()`
+                }
+            ];
+            
+            showModal('Add New Member', content, buttons);
+        };
+
+        window.submitAddMemberForm = () => {
+            const form = document.getElementById('add-member-form');
+            const formData = new FormData(form);
+            
+            const memberData = {
+                name: formData.get('name'),
+                accountType: formData.get('accountType'),
+                numAccounts: parseInt(formData.get('numAccounts')),
+                config: {
+                    monthlyUapContribution: formData.get('accountType') === 'beginner' ? 
+                        BEGINNER_UNIT_UAP * parseInt(formData.get('numAccounts')) : 
+                        STANDARD_UNIT_UAP * parseInt(formData.get('numAccounts')),
+                    monthlyMunoContribution: formData.get('accountType') === 'beginner' ? 
+                        BEGINNER_UNIT_MUNO * parseInt(formData.get('numAccounts')) : 
+                        STANDARD_UNIT_MUNO * parseInt(formData.get('numAccounts'))
+                }
+            };
+            
+            addMember(memberData);
+            closeModal();
+            renderApp();
+        };
+
+        window.deleteMemberConfirm = (memberId) => {
+            const member = allMembers.find(m => m.id === memberId);
+            if (!member) return;
+            
+            const content = `
+                <p>Are you sure you want to delete member <strong>${member.name}</strong> (${member.id})?</p>
+                <p class="text-red-600 mt-2">This action cannot be undone.</p>
+            `;
+            
+            const buttons = [
+                {
+                    text: 'Delete',
+                    class: 'bg-red-600 text-white hover:bg-red-700',
+                    onclick: `deleteMember('${memberId}')`
+                }
+            ];
+            
+            showModal('Confirm Deletion', content, buttons);
+        };
+
+        // Auto-refresh system
+        function startAutoRefresh() {
+            // Refresh every 10 minutes (600,000 milliseconds)
+            refreshInterval = setInterval(() => {
+                showToast('System data refreshed', 'info', 3000);
+                renderApp();
+            }, 600000);
+        }
+
+        function stopAutoRefresh() {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+            }
+        }
+
+        // Event Handlers
+        window.switchAdminTab = (tab) => {
+            activeTab = tab;
+            renderApp();
+        };
+
+        window.simulateUserSwitch = (event) => {
+            currentUserId = event.target.value;
+            renderApp();
+        };
+
+        window.toggleOnlineMode = () => {
+            isOnlineMode = !isOnlineMode;
+            showToast(isOnlineMode ? 'Online mode activated' : 'Offline mode activated', 'info');
+            renderApp();
+        };
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            loadData();
+            updateUserSwitcher();
+            renderApp();
+            startAutoRefresh();
+            
+            // Add event listeners
+            document.getElementById('user-switcher').addEventListener('change', window.simulateUserSwitch);
+            document.getElementById('online-toggle').addEventListener('change', window.toggleOnlineMode);
+            
+            // Update last updated time
+            updateLastUpdatedDisplay();
+        });
+
+        // Clean up on page unload
+        window.addEventListener('beforeunload', stopAutoRefresh);
+
+        // Note: Additional functions for contributions, expenses, and member portal
+        // would be implemented here following the same pattern
+
+    </script>
+</body>
+</html>
